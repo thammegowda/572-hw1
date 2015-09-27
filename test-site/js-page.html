@@ -1,0 +1,20 @@
+<html>
+  <head>
+    <title>Welcome, this is JS page</title>
+  </head>
+  <body>
+    <h1> Hello, JS Viewer</h1>
+
+    <div id="jspad">
+      <script type="text/javascript">
+	console.log("In page Javascript was run")
+	var mydiv = document.getElementById("jspad")
+	var iTag = document.createElement('img');
+	iTag.setAttribute('src',"images/inpage-js-image.png");
+	mydiv.appendChild(iTag);
+      </script>
+    </div>
+    <a href="/index.html">back to Index Page</a>
+    <script type="text/javascript" src="/js/extjs.js"></script>
+  </body>
+</html>
