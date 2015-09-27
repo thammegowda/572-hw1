@@ -1,6 +1,8 @@
 
 .idea
 try*
+test-site-test/*
+*~
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
