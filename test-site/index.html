@@ -4,8 +4,21 @@
   </head>
   <body>
     <h1> Hello, Index Page</h1>
+    
+    <div id="scriptpad">
+      <script type="text/javascript">
+	console.log("Javascript was run")
+	var mydiv = document.getElementById("scriptpad")
+	var aTag = document.createElement('a');
+	aTag.setAttribute('href',"js-page.html");
+	aTag.innerHTML = "Javascript Page";
+	mydiv.appendChild(aTag);
+      </script>
+      <a href="blocked.html">Blocked page</a>
+    </div>
+    <hr/>
     <img src="images/index-page-img.jpg">
-    <img src="http://aliashost:8000/images/external-image.jpg">
+    <img src="http://aliashost:8080/images/external-image.jpg">
 
     <div>
       <a href="firstpage.html">First Page </a>
