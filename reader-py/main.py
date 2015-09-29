@@ -8,7 +8,7 @@ from pprint import pprint
 SEGMENTS_CONTENT_DIR = "/home/tg/work/coursework/cs572/nutch/hw1/try1/segments/*/content/"
 CRAWLDB_DIR = "/home/tg/work/coursework/cs572/nutch/hw1/try1/crawldb/current/"
 SEG_FETCH_DIR = "/home/tg/work/coursework/cs572/nutch/hw1/try1/segments/*/crawl_fetch/"
-GROUP_NAME = "CSCI-572 FALL-15 GROUP-26; Thamme Gowda, Rakshith, Rahul and Nii"
+GROUP_NAME = "CSCI-572 FALL-15 GROUP-36; Thamme Gowda, Rakshith, Rahul and Nii"
 
 ## CONFIG BLOCK END
 
