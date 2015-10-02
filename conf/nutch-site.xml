@@ -1,0 +1,109 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+
+<!-- Put site-specific property overrides in this file. -->
+
+<configuration>
+ <property>
+    <name>http.agent.name</name>
+    <value>Apache Nutch/1.10 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-1</value>
+  </property>
+
+  <property>
+    <name>http.redirect.max</name>
+    <value>3</value>
+    <description>The maximum number of redirects the fetcher will follow when
+    trying to fetch a page. If set to negative or 0, fetcher won't immediately
+    follow redirected URLs, instead it will record them for later fetching.
+    </description>
+  </property>
+
+  
+ <property>
+  <name>http.agent.description</name>
+  <value>Image Crawler</value>
+  <description>Further description of our bot- this text is used in
+  the User-Agent header.  It appears in parenthesis after the agent name.
+  </description>
+ </property>
+ <property>
+  <name>http.agent.email</name>
+  <value>thammegowda.n (at) usc.edu</value>
+  <description>An email address to advertise in the HTTP 'From' request
+   header and User-Agent header. A good practice is to mangle this
+   address (e.g. 'info at example dot com') to avoid spamming.
+  </description>
+ </property>
+
+
+<property>
+  <name>http.agent.rotate</name>
+  <value>true</value>
+  <description>
+    If true, instead of http.agent.name, alternating agent names are
+    chosen from a list provided via http.agent.rotate.file.
+  </description>
+</property>
+
+<property>
+  <name>http.agent.rotate.file</name>
+  <value>agents.txt</value>
+  <description>
+    File containing alternative user agent names to be used instead of
+    http.agent.name on a rotating basis if http.agent.rotate is true.
+    Each line of the file should contain exactly one agent
+    specification including name, version, description, URL, etc.
+  </description>
+</property>
+
+ 
+ <property>
+  <name>http.content.limit</name>
+  <value>2097152</value> <!-- 2MB images-->
+  <description>The length limit for downloaded content using the http://
+  protocol, in bytes. If this value is nonnegative (>=0), content longer
+  than it will be truncated; otherwise, no truncation at all. Do not
+  confuse this setting with the file.content.limit setting.
+  </description>
+</property>
+
+
+<property>
+  <name>db.ignore.external.links</name>
+  <value>false</value>
+  <description>If true, outlinks leading from a page to external hosts
+  will be ignored. This is an effective way to limit the crawl to include
+  only initially injected hosts, without creating complex URLFilters.
+  </description>
+</property>
+
+
+<property>
+  <name>fetcher.follow.outlinks.ignore.external</name>
+  <value>true</value>  
+  <description>Whether to ignore or follow external links. Set db.ignore.external.links to false and this to true to store outlinks
+  in the output but not follow them. If db.ignore.external.links is true this directive is ignored.
+  </description>
+</property>
+
+
+<property>
+  <name>plugin.includes</name>
+  <value>protocol-interactiveselenium|urlfilter-regex|parse-(html|tika)|index-(basic|anchor)|scoring-opic|urlnormalizer-(pass|regex|basic)</value>
+  <description>Regular expression naming plugin directory names to
+  include.  Any plugin not matching this expression is excluded.
+  In any case you need at least include the nutch-extensionpoints plugin. By
+  default Nutch includes crawling just HTML and plain text via HTTP,
+  and basic indexing and search plugins. In order to use HTTPS please enable 
+  protocol-httpclient, but be aware of possible intermittent problems with the 
+  underlying commons-httpclient library. Set parsefilter-naivebayes for classification based focused crawler.
+  </description>
+</property>
+
+<property>
+  <name>interactiveselenium.handlers</name>
+  <value>handler.CustomHandler,DefaultHandler</value>
+  <description></description>
+</property>
+
+</configuration>

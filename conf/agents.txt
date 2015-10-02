@@ -1,0 +1,12 @@
+Nutch/1.11 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-1
+Nutch/1.11 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-10
+Nutch/1.11 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-11
+Nutch/1.11 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-12
+Nutch/1.11 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-13
+Nutch/1.11 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-14
+Nutch/1.11 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-15
+Nutch/1.11 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-16
+Nutch/1.11 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-17
+Nutch/1.11 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-18
+Nutch/1.11 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-19
+Nutch/1.11 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-20
