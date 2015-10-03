@@ -102,7 +102,7 @@
 
 <property>
   <name>interactiveselenium.handlers</name>
-  <value>handler.CustomHandler,DefaultHandler</value>
+  <value>handlers.CustomHandler</value>
   <description></description>
 </property>
 
