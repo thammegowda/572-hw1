@@ -6,7 +6,7 @@
 <configuration>
  <property>
     <name>http.agent.name</name>
-    <value>Apache Nutch/1.10 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-1</value>
+    <value>Apache Nutch/1.11 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) USC CSCI-572 Fall-15 Group-36 Member-1</value>
   </property>
 
   <property>
@@ -56,7 +56,15 @@
   </description>
 </property>
 
- 
+
+<property>
+  <name>parser.skip.truncated</name>
+  <value>false</value>
+  <description>Boolean value for whether we should skip parsing for truncated documents. By default this 
+  property is activated due to extremely high levels of CPU which parsing can sometimes take.  
+  </description>
+</property>
+
  <property>
   <name>http.content.limit</name>
   <value>2097152</value> <!-- 2MB images-->
@@ -90,7 +98,8 @@
 <property>
   <name>plugin.includes</name>
   <value>protocol-interactiveselenium|urlfilter-regex|parse-(html|tika)|index-(basic|anchor)|scoring-opic|urlnormalizer-(pass|regex|basic)</value>
-  <description>Regular expression naming plugin directory names to
+  <description>    
+    Regular expression naming plugin directory names to
   include.  Any plugin not matching this expression is excluded.
   In any case you need at least include the nutch-extensionpoints plugin. By
   default Nutch includes crawling just HTML and plain text via HTTP,
