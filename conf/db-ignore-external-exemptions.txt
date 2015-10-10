@@ -1,0 +1,13 @@
+# Exceptions to db ignore
+#
+# Format :
+#--------
+# MimeType=UrlRegex
+# The first occurance of '=' divides comma separated mime-types with the url regex.
+# When the url matches regex and content type is present in the specified list,it is considered as exceptional URL.
+
+
+# Example :
+#----------
+# To ingore except urls ending with .jpg or .png and has content type image/jpeg or image/png
+image/jpeg,image/png=.*\.jpg$|.*\.JPG$|.*\.png$|.*\.PNG$

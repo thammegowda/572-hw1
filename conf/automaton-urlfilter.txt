@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 # The default url filter.
 # Better for whole-internet crawling.
 
@@ -23,24 +22,14 @@
 # matches, the URL is ignored.
 
 # skip file: ftp: and mailto: urls
--^(file|ftp|mailto):
-
-
+-(file|ftp|mailto):.*
 
 # skip image and other suffixes we can't yet parse
 # for a more extensive coverage use the urlfilter-suffix plugin
-#-\.(gif|GIF|jpg|JPG|png|PNG|ico|ICO|css|CSS|sit|SIT|eps|EPS|wmf|WMF|zip|ZIP|ppt|PPT|mpg|MPG|xls|XLS|gz|GZ|rpm|RPM|tgz|TGZ|mov|MOV|exe|EXE|jpeg|JPEG|bmp|BMP|js|JS)$
-
-#Images are allowed
--\.(ico|ICO|css|CSS|sit|SIT|eps|EPS|wmf|WMF|zip|ZIP|ppt|PPT|mpg|MPG|xls|XLS|gz|GZ|rpm|RPM|tgz|TGZ|mov|MOV|exe|EXE|js|JS)$
-
-
+-.*\.(gif|GIF|jpg|JPG|png|PNG|ico|ICO|css|CSS|sit|SIT|eps|EPS|wmf|WMF|zip|ZIP|ppt|PPT|mpg|MPG|xls|XLS|gz|GZ|rpm|RPM|tgz|TGZ|mov|MOV|exe|EXE|jpeg|JPEG|bmp|BMP|js|JS)
 
 # skip URLs containing certain characters as probable queries, etc.
-#-[?*!@=]
-
-# skip URLs with slash-delimited segment that repeats 3+ times, to break loops
-#-.*(/[^/]+)/[^/]+\1/[^/]+\1/
+-.*[?*!@=].*
 
 # accept anything else
-+.
++.*

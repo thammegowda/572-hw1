@@ -37,6 +37,17 @@
 
 
 <property>
+  <name>fetcher.server.delay</name>
+  <value>2.0</value>
+  <description>The number of seconds the fetcher will delay between 
+   successive requests to the same server. Note that this might get
+   overriden by a Crawl-Delay from a robots.txt and is used ONLY if 
+   fetcher.threads.per.queue is set to 1.
+   </description>
+</property>
+
+ 
+<property>
   <name>http.agent.rotate</name>
   <value>true</value>
   <description>
@@ -75,13 +86,31 @@
   </description>
 </property>
 
+<property>
+  <name>link.ignore.internal.host</name>
+  <value>false</value>
+  <description>Ignore outlinks to the same hostname.</description>
+</property>
+
 
 <property>
   <name>db.ignore.external.links</name>
-  <value>false</value>
+  <value>true</value>
   <description>If true, outlinks leading from a page to external hosts
   will be ignored. This is an effective way to limit the crawl to include
   only initially injected hosts, without creating complex URLFilters.
+  </description>
+</property>
+
+
+<property>
+  <name>db.ignore.external.exemptions</name>
+  <value>true</value>
+  <description>
+    If true, external resources obeying to rules specified in
+    'db.ignore.external.exemptions.file' will not be ignored.
+    This config overrides 'db.ignore.external.links' setting to
+    the resources which match to exemption rules.
   </description>
 </property>
 
@@ -97,8 +126,9 @@
 
 <property>
   <name>plugin.includes</name>
-  <value>protocol-interactiveselenium|urlfilter-regex|parse-(html|tika)|index-(basic|anchor)|scoring-opic|urlnormalizer-(pass|regex|basic)</value>
-  <description>    
+  <value>protocol-http|urlfilter-regex|parse-(html|tika)|index-(basic|anchor)|scoring-opic|urlnormalizer-(pass|regex|basic)</value>
+  <description>
+    protocol-interactiveselenium
     Regular expression naming plugin directory names to
   include.  Any plugin not matching this expression is excluded.
   In any case you need at least include the nutch-extensionpoints plugin. By
