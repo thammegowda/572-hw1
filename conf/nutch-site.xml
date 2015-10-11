@@ -104,18 +104,6 @@
 
 
 <property>
-  <name>db.ignore.external.exemptions</name>
-  <value>true</value>
-  <description>
-    If true, external resources obeying to rules specified in
-    'db.ignore.external.exemptions.file' will not be ignored.
-    This config overrides 'db.ignore.external.links' setting to
-    the resources which match to exemption rules.
-  </description>
-</property>
-
-
-<property>
   <name>fetcher.follow.outlinks.ignore.external</name>
   <value>true</value>  
   <description>Whether to ignore or follow external links. Set db.ignore.external.links to false and this to true to store outlinks
@@ -126,7 +114,7 @@
 
 <property>
   <name>plugin.includes</name>
-  <value>protocol-http|urlfilter-regex|parse-(html|tika)|index-(basic|anchor)|scoring-opic|urlnormalizer-(pass|regex|basic)</value>
+  <value>protocol-http|urlfilter-(regex|ignoreexempt)|parse-(html|tika)|index-(basic|anchor)|scoring-opic|urlnormalizer-(pass|regex|basic)</value>
   <description>
     protocol-interactiveselenium
     Regular expression naming plugin directory names to
