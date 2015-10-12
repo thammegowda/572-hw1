@@ -111,6 +111,16 @@
   </description>
 </property>
 
+<property>
+  <name>scoring.similarity.stopword.file</name>
+  <value>stopwords.txt</value>
+</property>
+
+<property>
+  <name>scoring.similarity.model.path</name>
+  <value>goldstandard.txt</value>
+</property>
+
 
 <property>
   <name>plugin.includes</name>
@@ -129,7 +139,7 @@
 
 <property>
   <name>interactiveselenium.handlers</name>
-  <value>handlers.CustomHandler</value>
+  <value>handlers.LoginHandler</value>
   <description></description>
 </property>
 
