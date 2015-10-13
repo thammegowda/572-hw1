@@ -110,6 +110,9 @@ def mkdir_p(directory):
         if exc.errno == errno.EEXIST and os.path.isdir(directory):
             pass
         else: raise
+def rm_dir(directory):
+    if os.path.exists(directory):
+        shutil.rmtree(directory, ignore_errors=True)
 
 def create_output_image_directory(args, final_dictionary):
     """ Given a deduplicated set of images, as well as an initial dump dir,
@@ -117,6 +120,9 @@ def create_output_image_directory(args, final_dictionary):
 
     if args.output_dir == None:
         return
+
+    #rm_dir(args.output_dir)
+
     duplicate_dir = os.path.join( args.output_dir, '_duplicates')
     mkdir_p(args.output_dir)
     mkdir_p(duplicate_dir)
