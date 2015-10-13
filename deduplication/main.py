@@ -13,6 +13,10 @@ import os, sys, errno
 from multiprocessing import Pool
 import json
 import shutil
+<<<<<<< HEAD
+=======
+import imghdr
+>>>>>>> 2b4e283064042438fa8fc3e3924d07061fded1f7
 
 def main():
     args = create_parser().parse_args()
@@ -29,20 +33,36 @@ def create_parser():
     parser.add_argument('-o', '--output_json', help="Write the locations and hashes of each deduplicated image to a JSON file. Defaults to 'image_locations.json'") 
     parser.add_argument('-d', '--output_dir', help="Output deduplicated images to directory. ")
     parser.add_argument('-s', '--show_duplicates', default=False, action="store_true", help="Use this flag to generate a directory which contains duplicates. Defaults behavior doesn't show duplicates." ) 
+<<<<<<< HEAD
+=======
+    parser.add_argument('-j', '--num_jobs', help="Number of worker threads to divide the deduplication. Defaults to 2. The more images the more jobs you should create", default=2, type=int)
+>>>>>>> 2b4e283064042438fa8fc3e3924d07061fded1f7
 
     return parser
 
 def is_image(filename):
-    # First do a simple check for file extensions
+   # First do a simple check for file extensions
     extensions = [".jpg", ".png", ".svg", ".tiff", ".jpeg"]
     for ext in extensions:
+        
         if filename.endswith(ext):
+            # Compare the file extension
             return True
-    # Later we can add some more logic
-        # If necessary try opening the file with an image module
-        # If there's an error opening it, then it's not an image so return false
+        """
+        elif imghdr.what(filename) != None:
+            # If there's no extension, determine it by opening the file
+            return True
+        """
 
-    return False
+    # If necessary try opening the file with an image module
+    # If there's an error opening it, then it's not an image so return false
+    """
+    try: 
+        Image.open(filename)
+    except: IOError:
+        return False 
+    """
+    return False 
 
 def find_all_images(dump_directory):
     """Find a list of images provided a root dump directory"""
@@ -67,13 +87,16 @@ def exact_deduplicate_images(workerId, file_array):
 
 def near_deduplicate_images(file_array):
     """Given a list of file names, return a dictionary of "nearly" deduplicated images"""
-    pass
+    nd = NearDuplicate(file_array)
+    nd.deduplicate_images()
+    return nd.image_dictionary 
 
-def partition_filenames(file_array, num_chunks=1):
+def partition_filenames(file_array, num_chunks=2):
     """ Given an array of file names, return "num_chunks" partitions"""
+    chunk_size = len(file_array)/num_chunks
 
-    for i in xrange(0, len(file_array), num_chunks):
-        yield file_array[i:i+num_chunks]
+    for i in xrange(0, len(file_array), chunk_size):
+        yield file_array[i:i+chunk_size]
 
 def merge_dictionaries(dictionaries):
     """ Given an array of dictionaries, merge the dictionaries into 1 final result"""
@@ -93,12 +116,18 @@ def mkdir_p(directory):
             pass
         else: raise
 
+def rm_dir(directory):
+    if os.path.exists(directory):
+        shutil.rmtree(directory, ignore_errors=True)
+
 def create_output_image_directory(args, final_dictionary):
     """ Given a deduplicated set of images, as well as an initial dump dir,
         output the deduplicated images to an output directory"""
 
     if args.output_dir == None:
         return
+    #rm_dir(args.output_dir)
+
     duplicate_dir = os.path.join( args.output_dir, '_duplicates')
     mkdir_p(args.output_dir)
     mkdir_p(duplicate_dir)
@@ -124,9 +153,12 @@ def create_output_image_directory(args, final_dictionary):
                 _, dst_filename = os.path.split(dup_obj["filename"]) 
                 dst_path = os.path.join(curr_duplicate_image_dir, str(index) + "-" + dst_filename)
                 shutil.copy2(src_path, dst_path) 
+           
 
     print >> sys.stderr, "Copied unique images from:\n --- %s --- to\n --- %s ---" % (args.dump_dir, args.output_dir)
-    print >> sys.stderr, "Duplicates stored in: \n --- %s ---" % duplicate_dir
+
+    if args.show_duplicates:
+        print >> sys.stderr, "Duplicates stored in: \n --- %s ---" % duplicate_dir
 
 def generate_output(args):
     """ Main application Driver
@@ -142,7 +174,7 @@ def generate_output(args):
     filenames = find_all_images(args.dump_dir)
 
     # Partition the list of filenames
-    num_chunks = 8
+    num_chunks = args.num_jobs 
     file_chunks = partition_filenames(filenames, num_chunks)
 
     # Create a pool of worker threads
@@ -151,11 +183,12 @@ def generate_output(args):
 
     # Pass the partitions to each thread
     results = []
-    if args.exact_duplicates:
+
+    if not args.near_duplicates:
         results = [pool.apply_async(exact_deduplicate_images, args=(index,chunk,)) for index, chunk in enumerate(file_chunks)]
     else:
         results = [pool.apply_async(near_deduplicate_images, args=(chunk,)) for chunk in file_chunks]
-    
+
     # Get the results from each worker
     dictionaries = [p.get() for p in results]
 
