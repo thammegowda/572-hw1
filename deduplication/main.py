@@ -10,7 +10,8 @@ from nearDuplicate import NearDuplicate
 from exactDuplicate import ExactDuplicate
 import argparse
 import os, sys, errno
-from multiprocessing import Pool
+#from multiprocessing import Pool
+from pathos.multiprocessing import Pool
 import json
 import shutil
 import imghdr
@@ -83,23 +84,49 @@ def near_deduplicate_images(file_array):
     """Given a list of file names, return a dictionary of "nearly" deduplicated images"""
     nd = NearDuplicate(file_array)
     nd.deduplicate_images()
-    return nd.image_dictionary 
+    #return nd.simhash_index,nd.image_dictionary 
+    return nd.image_dictionary
 
 def partition_filenames(file_array, num_chunks=2):
     """ Given an array of file names, return "num_chunks" partitions"""
-    chunk_size = len(file_array)/num_chunks
+    chunk_size = len(file_array)//num_chunks
 
     for i in xrange(0, len(file_array), chunk_size):
         yield file_array[i:i+chunk_size]
 
-def merge_dictionaries(dictionaries):
+def merge_near_duplicates(near_duplicate_objects):
+    final_dict = {}
+    first_nd = None
+    second_nd = None
+    #for simhash_index,image_dictionary in index_dictionary_tuples:
+    for index, (simhash_index, image_dictionary) in enumerate(near_duplicate_objects):
+        if index < len(near_duplicate_objects) - 1:
+            sim_index1, img_dict1 = near_duplicate_objects[index]
+            sim_index2, img_dict2 = near_duplicate_objects[index+1]
+
+            first_nd, second_nd = NearDuplicate([]), NearDuplicate([])
+            first_nd.image_dictionary, second_nd.image_dictionary  = img_dict1, img_dict2 
+            first_nd.simhash_index, second_nd.simhash_index = sim_index1, sim_index2 
+
+            first_nd.merge_near_duplicate_dictionaries(second_nd)
+    
+    final_dict = second_nd.image_dictionary
+
+    return final_dict
+
+def merge_exact_duplicates(dictionaries):
     """ Given an array of dictionaries, merge the dictionaries into 1 final result"""
     final_dict = {}
+
+    # Simple case for exact duplicates
     for d in dictionaries:
         duplicate_keys = set(d).union(final_dict)
         for key in duplicate_keys:
             arr = final_dict.get(key, []) + d.get(key, [])
             final_dict[key] = arr
+
+    # If keys can have "nearness" we need a more advanced merge
+        
     return final_dict
 
 def mkdir_p(directory):
@@ -177,17 +204,31 @@ def generate_output(args):
 
     # Pass the partitions to each thread
     results = []
-
+    final_dictionary = {}
     if not args.near_duplicates:
-        results = [pool.apply_async(exact_deduplicate_images, args=(index,chunk,)) for index, chunk in enumerate(file_chunks)]
+        # Get the results from each worker
+        results = [pool.apply_async(exact_deduplicate_images, args=(index,chunk,)) 
+                for index, chunk in enumerate(file_chunks)]
+        dictionaries = [p.get() for p in results]
+
+        # Merge the results into one dictionary
+        final_dictionary = merge_exact_duplicates(dictionaries)
     else:
-        results = [pool.apply_async(near_deduplicate_images, args=(chunk,)) for chunk in file_chunks]
+        # Get the results from each near duplicate worker
+        results = [pool.apply_async(near_deduplicate_images, args=(chunk,)) 
+                for chunk in file_chunks]
 
-    # Get the results from each worker
-    dictionaries = [p.get() for p in results]
+        # Create an array of simhash_index, dictionary tuples
+        #index_dictionary_tuples = [p.get() for p in results]
 
-    # Merge the results into one dictionary
-    final_dictionary = merge_dictionaries(dictionaries)
+        # create an array of near duplicate objects
+        near_duplicate_objects = [p.get() for p in results]
+
+        # Merge with exact 
+        final_dictionary = merge_exact_duplicates(near_duplicate_objects)
+
+        # Merge the dictionaries together using the info from its corresponding indexes
+        #final_dictionary = merge_near_duplicates(near_duplicate_objects)
 
     print >> sys.stderr, "Number of images prior to deduplication: %d" % len(filenames)
     print >> sys.stderr, "Number of images after deduplication: %d" %  len(final_dictionary)
@@ -196,10 +237,15 @@ def generate_output(args):
     outfile_name = ""
     if args.output_json == None:
         outfile_name = "image_locations.json"
-   
-    print >> sys.stderr, "Writing to image dictionary to file: %s" % outfile_name
-    with open(outfile_name, 'w') as outfile:
-        json.dump(final_dictionary, outfile, indent=4)
+    
+    if not args.near_duplicates:
+        # TODO
+        # For now, just do this with exact duplicates
+        # Dumping the simhash class to JSON doesn't work because the object isn't
+        # JSON serializable 
+        print >> sys.stderr, "Writing to image dictionary to file: %s" % outfile_name
+        with open(outfile_name, 'w') as outfile:
+            json.dump(final_dictionary, outfile, indent=4, skipkeys=True)
 
     # Copy the images to an output directory
     create_output_image_directory(args, final_dictionary)

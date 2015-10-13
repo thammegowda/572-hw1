@@ -59,6 +59,63 @@ class NearDuplicate:
 
         pass
 
+    def merge_near_duplicate_dictionaries(self, nd):
+        # Merge the current near duplicate instance with another instance
+        smaller_nd = self if len(self.image_dictionary) <= len(nd.image_dictionary) else nd
+        larger_nd = self if len(self.image_dictionary) > len(nd.image_dictionary) else nd
+        final_dict = larger_nd.image_dictionary
+
+        # Iterate over the smaller near duplicate instance
+        for key in smaller_nd.image_dictionary.keys():
+            
+
+            # If an exact duplicate exists, just grab it and merge them 
+            if larger_nd.image_dictionary.get(key, None) != None:
+                print >> sys.stderr, "Exact dup found"
+                arr = smaller_nd.image_dictionary.get(key, []) +\
+                        larger_nd.image_dictionary.get(key, [])
+                print >> sys.stderr, "Adding to dictionary"
+                final_dict[key] = arr
+                continue
+
+            # Find the closest near duplicate in the larger dictionary by
+            # using it's index
+            print >> sys.stderr, "Getting simhash obj"
+            simhash_obj = smaller_nd.image_dictionary[key][0]["hash_object"]
+
+            print >> sys.stderr, "Getting near duplicate keys"
+            near_duplicates_keys = larger_nd.simhash_index.get_near_dups(simhash_obj)
+            
+            # If a near duplicate exists 
+            if len(near_duplicates_keys) > 0:
+                # grab the array of images at that key in the larger dictionary
+                # Merge it the array of images in the smaller dictionary 
+                print >> sys.stderr, "Near duplicates exist"
+                near_dup_key = near_duplicates_keys[0]
+                arr = smaller_nd.image_dictionary.get(key, []) +\
+                        larger_nd.image_dictionary.get(near_dup_key, [])
+
+                # create an entry in the new dictionary
+                final_dict[near_dup_key] = arr
+                continue
+                
+            # Otherwise we should just add this key-object from the dictionary
+            # to this array
+            final_dict[key] = smaller_nd.image_dictionary[key] 
+
+            # Add this simhash to the Index for efficient searching
+            larger_nd.simhash_index.add(key, simhash_obj)
+
+        self.image_dictionary = final_dict
+        self.simhash_index = larger_nd.simhash_index
+
+        nd.image_dicionary = final_dict
+        nd.simhash_index = larger_nd.simhash_index
+
+        # Now simply return this final dict 
+        return final_dict
+
+
     def simhash_value_to_key(self, simhash):
         """Given a simhash object, convert it's value to a hexadecimal key 
             This key will be used in our image_file dictionary
@@ -86,8 +143,11 @@ class NearDuplicate:
                 # We will use this index to speed up the process for finding
                 # nearby simhashes
                 self.simhash_index = SimhashIndex([(key, sHash)])
-                self.image_dictionary[key] = [{"filename" : image_file, 
-                    "hash_key" : key}] 
+                self.image_dictionary[key] = [{
+                    "filename" : image_file, 
+                    "hash_key" : key, 
+                    "hash_object": sHash
+                }] 
                 continue
 
             near_duplicates_keys = self.simhash_index.get_near_dups(sHash)
@@ -104,7 +164,11 @@ class NearDuplicate:
 
                 # Create an object comprised of the image filename and key
                 # We'll store this in a dictionary to be used in our merge step
-                current_simhash_object = {"filename" : image_file, "hash_key" : current_simhash_key}
+                current_simhash_object = {
+                    "filename" : image_file, 
+                    "hash_key" : current_simhash_key,
+                    "hash_object" : sHash
+                }
                 self.image_dictionary[near_dup_simhash_key].append(current_simhash_object)
             else:
                 # No duplicates, so let's create an entry in our image filename dictionary
@@ -114,5 +178,9 @@ class NearDuplicate:
                 self.simhash_index.add(key, sHash)
 
                 # Create an object in our image file dictionary
-                self.image_dictionary[key] = [{"filename" : image_file, "hash_key" : key}]
+                self.image_dictionary[key] = [{
+                    "filename" : image_file, 
+                    "hash_key" : key,
+                    "hash_object" : sHash
+                }]
 
