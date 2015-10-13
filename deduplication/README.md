@@ -2,8 +2,10 @@
 
 #####Nii Mante
 
-	usage: python main.py [-h] [-e | -n] [-o OUTPUT_JSON] [-d OUTPUT_DIR] [-s] dump_dir
-	
+	usage: python main.py [-h] [-e | -n] [-o OUTPUT_JSON] [-d OUTPUT_DIR] [-s]
+               [-j NUM_JOBS]
+               dump_dir
+
 	This program takes a set of N images, finds duplicate images in the set, and
 	returns a set of deduplicated images.
 	
@@ -14,18 +16,24 @@
 	  -h, --help            show this help message and exit
 	  -e, --exact_duplicates
 	                        Use this flag to deduplicate images via an "exact"
-	                        deduplication methodology
+	                        deduplication methodology. Default behavior is to use
+	                        exact duplicates.
 	  -n, --near_duplicates
 	                        Use this flag to deduplicate images via a "near"
 	                        deduplication methodology
 	  -o OUTPUT_JSON, --output_json OUTPUT_JSON
 	                        Write the locations and hashes of each deduplicated
-	                        image to a JSON file
+	                        image to a JSON file. Defaults to
+	                        'image_locations.json'
 	  -d OUTPUT_DIR, --output_dir OUTPUT_DIR
 	                        Output deduplicated images to directory.
 	  -s, --show_duplicates
 	                        Use this flag to generate a directory which contains
-	                        duplicates.
+	                        duplicates. Defaults behavior doesn't show duplicates.
+	  -j NUM_JOBS, --num_jobs NUM_JOBS
+	                        Number of worker threads to divide the deduplication.
+	                        Defaults to 2. The more images the more jobs you
+	                        should create
 	                        
 
 ##Overview
