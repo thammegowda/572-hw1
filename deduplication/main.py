@@ -13,10 +13,7 @@ import os, sys, errno
 from multiprocessing import Pool
 import json
 import shutil
-<<<<<<< HEAD
-=======
 import imghdr
->>>>>>> 2b4e283064042438fa8fc3e3924d07061fded1f7
 
 def main():
     args = create_parser().parse_args()
@@ -33,10 +30,7 @@ def create_parser():
     parser.add_argument('-o', '--output_json', help="Write the locations and hashes of each deduplicated image to a JSON file. Defaults to 'image_locations.json'") 
     parser.add_argument('-d', '--output_dir', help="Output deduplicated images to directory. ")
     parser.add_argument('-s', '--show_duplicates', default=False, action="store_true", help="Use this flag to generate a directory which contains duplicates. Defaults behavior doesn't show duplicates." ) 
-<<<<<<< HEAD
-=======
     parser.add_argument('-j', '--num_jobs', help="Number of worker threads to divide the deduplication. Defaults to 2. The more images the more jobs you should create", default=2, type=int)
->>>>>>> 2b4e283064042438fa8fc3e3924d07061fded1f7
 
     return parser
 
