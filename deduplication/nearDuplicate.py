@@ -39,30 +39,49 @@ class NearDuplicate:
     def generate_features(self, filename):
         """Given an image generate a feature vector"""
 
+        """ 
+            Since Tika-Py is requires a server call (i.e. slower)
+            Do native image metadata grabbing, and fallback on tika if the
+            image can't be opened (i.e., it's an svg or gif)
+        """
+        im, use_tika = None, False 
+        try:
+            im = Image.open(filename)
+            use_tika = False
+        except IOError:
+            use_tika = True
+            
         # Grab the metadata for the image
         metadata = {} 
         
+        # We'll store features to use for simhash in a tuple array [(token, weight)]
         features = []
-        if self.use_tika_meta:
+
+        if use_tika:
             # Use only metadata from tika
+            # The image file can't be opened using PIL.Image, so forget 
+            # about grabbing actual image bytes for now
             metadata = self.tika_metadata(filename)
             feature_tags = ["Image Height", "Image Width", "File Size", "Content-Type"]
             features = [tag + ":" + metadata.get(tag,"NONE") for tag in feature_tags]
             return features
 
         """ 
-            Let's create an additional feature which uses the image content
-            For now, let's just hash the entire image
-                We'll resize the image so it's normalized to a certain size
+            FEATURES
+                We'll resize the image so all images are normalized to a certain size 
+                Also make sure to retain aspect ratio
 
-                Features to use
+                Features to use (in order of importance)
+                    - center region bytes 
                     - color histogram
-                    - image bytes of subregions
+                    - content type
+                    - image width
+                    - image height
 
             We can take subregions of the image, and hash those
         """
 
-        im = Image.open(filename)
+        
         # Resize the image so all images are normalized
         width = im.size[0]
         height = im.size[1]
@@ -75,7 +94,11 @@ class NearDuplicate:
         box = (width_padding, height_padding, resize_width - width_padding, 
                 resize_height - height_padding)
         sub_region = im.crop(box) 
+
+        # Generate a histogram
         histogram_bytes = str(im.histogram()) 
+
+        # Figure out the content type (png, jpg, etc.)
         content_type = "image/" + str(im.format.lower())
         center_region_bytes = str(list(sub_region.getdata()))
         
@@ -83,10 +106,10 @@ class NearDuplicate:
                 "Image Height" : 1, 
                 "Image Width" : 1,
                 "Image Histogram" : 3,
-                "Content-Type" : 3,
+                "Content-Type" : 4,
                 "Center Region Bytes" : 5 
-
         }
+
         metadata = {
                 "Image Height" : str(width), 
                 "Image Width" : str(height),
@@ -94,25 +117,19 @@ class NearDuplicate:
                 "Content-Type" : content_type,
                 "Center Region Bytes" : center_region_bytes 
         }
-
-        
-        # Create a vector of metadata
-        #features = [tag + ":" + metadata.get(tag,"NONE") for tag, weight in zip(feature_tags_weight_tuple,] 
-        for (feature_tag, weight), (meta_tag, meta_value) in zip(feature_weight_dict.items(), metadata.items()):
+       
+        # Create an array of (token, weight) tuples. These are our features and weights
+        # to be used for the Simhash
+        for (feature_tag, weight), (meta_tag, meta_value) in zip(feature_weight_dict.items(), 
+                metadata.items()):
             features.append((meta_tag + ":" + meta_value, weight))
 
         return features 
 
 
-    def vector_similarity(self, vec1, vec2):
-        # Generate similarity between two vectors
-
-        # Jaccard similarity/ Cosine Similarity
-
-        pass
-
     def merge_near_duplicate_dictionaries(self, nd):
-        # Merge the current near duplicate instance with another instance
+        """Merge the current near duplicate instance with another near duplicate instance"""
+
         smaller_nd = self if len(self.image_dictionary) <= len(nd.image_dictionary) else nd
         larger_nd = self if len(self.image_dictionary) > len(nd.image_dictionary) else nd
         final_dict = larger_nd.image_dictionary

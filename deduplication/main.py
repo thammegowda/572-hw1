@@ -114,9 +114,9 @@ def merge_near_duplicates(near_duplicate_objects):
             first_nd.image_dictionary, second_nd.image_dictionary  = img_dict1, img_dict2 
             first_nd.simhash_index, second_nd.simhash_index = sim_index1, sim_index2 
 
-            first_nd.merge_near_duplicate_dictionaries(second_nd)
+            final_dict.update(first_nd.merge_near_duplicate_dictionaries(second_nd))
             
-    final_dict = second_nd.image_dictionary
+    #final_dict = second_nd.image_dictionary
 
     return final_dict
 
@@ -170,17 +170,15 @@ def create_output_image_directory(args, final_dictionary):
 
         # Copy image to new directory 
         shutil.copy2(src_path, dst_path) 
-
-        # If we're interested in looking at duplicates
-        # We examine the rest of the images in the duplicate array for this 
-        # Image hash
+        
+        # Copy all the duplicate images for this specific image to 
+        # a subdirectory within '_duplicates'
         if len(duplicate_image_array) > 1 and args.show_duplicates:
             curr_duplicate_image_dir = os.path.join(duplicate_dir, image_hash)
             mkdir_p(curr_duplicate_image_dir)
             for index, dup_obj in enumerate(duplicate_image_array):
                 src_path = dup_obj["filename"] 
                 _, dst_filename = os.path.split(dup_obj["filename"]) 
-                #dst_path = os.path.join(curr_duplicate_image_dir, str(index) + "-" + dst_filename)
                 dst_path = os.path.join(curr_duplicate_image_dir, dst_filename)
                 shutil.copy2(src_path, dst_path) 
            
@@ -232,9 +230,6 @@ def generate_output(args):
 
         # create an array of near duplicate objects
         near_duplicate_objects = [p.get() for p in results]
-
-        # Merge with exact 
-        #final_dictionary = merge_exact_duplicates(near_duplicate_objects)
 
         # Merge the dictionaries together using the info from its corresponding indexes
         final_dictionary = merge_near_duplicates(near_duplicate_objects)
