@@ -68,3 +68,5 @@ deduplication/*.json
 deduplication/**/*.json
 deduplication/**/*.jpg
 !deduplication/test_images/*.jpg
+
+deduplication/data

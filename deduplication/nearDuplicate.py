@@ -8,21 +8,24 @@ __status__ = "Development"
    This module contains methods to find near duplicate images.  
 """
 import tika
-tika.initVM()
+#tika.initVM()
 from tika import parser
 import sys
 import exifread
+from PIL import Image
+
+# Simhash algorithm https://github.com/liangsun/simhash 
 from simhash import Simhash, SimhashIndex
 
 class NearDuplicate:
-    def __init__(self, filenames, use_tika_meta=True):
+    def __init__(self, filenames, use_tika_meta=False, bit_distance=2):
         self.filenames = filenames
         self.use_tika_meta = use_tika_meta
         self.simhash_index = None 
         self.image_dictionary = {}
+        self.k = bit_distance
         # Need to store the image hashes in some fashion
         # Possibly cluster the hashes (k-means) 
-        # Use 
     
     def tika_metadata(self, filename):
         """Use the tika-py module to grab metadata for a file"""
@@ -38,29 +41,97 @@ class NearDuplicate:
     def generate_features(self, filename):
         """Given an image generate a feature vector"""
 
-        # Grab the metadata for the image
-        metadata = None
-        feature_tags = ["Image Height", "Image Width", "File Size", "Content-Type"]
-        if self.use_tika_meta:
-            metadata = self.tika_metadata(filename)
-        else:
-            metadata = self.exifread_metadata(filename)
+        """ 
+            Since Tika-Py is requires a server call (i.e. slower)
+            Do native image metadata grabbing, and fallback on tika if the
+            image can't be opened (i.e., it's an svg or gif)
+        """
+        im, use_tika = None, False 
+        try:
+            im = Image.open(filename)
+            use_tika = False
+        except IOError:
+            use_tika = True
             
-        # Create a vector of metadata
-        features = [tag + ":" + metadata.get(tag,"NONE") for tag in feature_tags] 
+        # Grab the metadata for the image
+        metadata = {} 
+        
+        # We'll store features to use for simhash in a tuple array [(token, weight)]
+        features = []
+
+        if use_tika:
+            # Use only metadata from tika
+            # The image file can't be opened using PIL.Image, so forget 
+            # about grabbing actual image bytes for now
+            metadata = self.tika_metadata(filename)
+            feature_tags = ["Image Height", "Image Width", "File Size", "Content-Type"]
+            features = [tag + ":" + metadata.get(tag,"NONE") for tag in feature_tags]
+            return features
+
+        """ 
+            FEATURES
+                We'll resize the image so all images are normalized to a certain size 
+                Also make sure to retain aspect ratio
+
+                Features to use (in order of importance)
+                    - center region bytes 
+                    - color histogram
+                    - content type
+                    - image width
+                    - image height
+
+            We can take subregions of the image, and hash those
+        """
+
+        
+        # Resize the image so all images are normalized
+        width = im.size[0]
+        height = im.size[1]
+        resize_width = 30 
+        resize_height = resize_width*height/width
+        resize_im = im.resize((resize_width, resize_height), Image.ANTIALIAS)
+
+        # Crop sub regions
+        height_padding, width_padding = resize_height/5, resize_width/5
+        box = (width_padding, height_padding, resize_width - width_padding, 
+                resize_height - height_padding)
+        sub_region = resize_im.crop(box) 
+
+        # Generate a histogram
+        histogram_bytes = str(resize_im.histogram()) 
+
+        # Figure out the content type (png, jpg, etc.)
+        content_type = "image/" + str(im.format.lower())
+        center_region_bytes = str(list(sub_region.getdata()))
+        
+        feature_weight_dict = {
+                "Image Height" : 1, 
+                "Image Width" : 1,
+                "Image Histogram" : 4,
+                "Content-Type" : 5,
+                "Center Region Bytes" : 3 
+        }
+
+        metadata = {
+                "Image Height" : str(width), 
+                "Image Width" : str(height),
+                "Image Histogram" : histogram_bytes,
+                "Content-Type" : content_type,
+                "Center Region Bytes" : center_region_bytes 
+        }
+       
+        # Create an array of (token, weight) tuples. These are our features and weights
+        # to be used for the Simhash
+        for (feature_tag, weight), (meta_tag, meta_value) in zip(feature_weight_dict.items(), 
+                metadata.items()):
+            features.append((meta_tag + ":" + meta_value, weight))
 
         return features 
 
 
-    def vector_similarity(self, vec1, vec2):
-        # Generate similarity between two vectors
-
-        # Jaccard similarity/ Cosine Similarity
-
-        pass
-
     def merge_near_duplicate_dictionaries(self, nd):
-        # Merge the current near duplicate instance with another instance
+        """Merge the current near duplicate instance with another near duplicate instance"""
+
         smaller_nd = self if len(self.image_dictionary) <= len(nd.image_dictionary) else nd
         larger_nd = self if len(self.image_dictionary) > len(nd.image_dictionary) else nd
         final_dict = larger_nd.image_dictionary
@@ -71,26 +142,21 @@ class NearDuplicate:
 
             # If an exact duplicate exists, just grab it and merge them 
             if larger_nd.image_dictionary.get(key, None) != None:
-                print >> sys.stderr, "Exact dup found"
                 arr = smaller_nd.image_dictionary.get(key, []) +\
                         larger_nd.image_dictionary.get(key, [])
-                print >> sys.stderr, "Adding to dictionary"
                 final_dict[key] = arr
                 continue
 
             # Find the closest near duplicate in the larger dictionary by
             # using it's index
-            print >> sys.stderr, "Getting simhash obj"
             simhash_obj = smaller_nd.image_dictionary[key][0]["hash_object"]
 
-            print >> sys.stderr, "Getting near duplicate keys"
             near_duplicates_keys = larger_nd.simhash_index.get_near_dups(simhash_obj)
             
             # If a near duplicate exists 
             if len(near_duplicates_keys) > 0:
                 # grab the array of images at that key in the larger dictionary
                 # Merge it the array of images in the smaller dictionary 
-                print >> sys.stderr, "Near duplicates exist"
                 near_dup_key = near_duplicates_keys[0]
                 arr = smaller_nd.image_dictionary.get(key, []) +\
                         larger_nd.image_dictionary.get(near_dup_key, [])
@@ -142,7 +208,7 @@ class NearDuplicate:
 
                 # We will use this index to speed up the process for finding
                 # nearby simhashes
-                self.simhash_index = SimhashIndex([(key, sHash)])
+                self.simhash_index = SimhashIndex([(key, sHash)], k=self.k)
                 self.image_dictionary[key] = [{
                     "filename" : image_file, 
                     "hash_key" : key, 

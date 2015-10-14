@@ -15,6 +15,7 @@ from pathos.multiprocessing import Pool
 import json
 import shutil
 import imghdr
+from PIL import Image
 
 def main():
     args = create_parser().parse_args()
@@ -45,18 +46,18 @@ def is_image(filename):
             return True
         """
         elif imghdr.what(filename) != None:
-            # If there's no extension, determine it by opening the file
+            # If there's no extension, determine if it's an image by opening the file
             return True
         """
 
     # If necessary try opening the file with an image module
     # If there's an error opening it, then it's not an image so return false
-    """
     try: 
         Image.open(filename)
-    except: IOError:
+        return True
+    except IOError:
         return False 
-    """
+
     return False 
 
 def find_all_images(dump_directory):
@@ -84,8 +85,8 @@ def near_deduplicate_images(file_array):
     """Given a list of file names, return a dictionary of "nearly" deduplicated images"""
     nd = NearDuplicate(file_array)
     nd.deduplicate_images()
-    #return nd.simhash_index,nd.image_dictionary 
-    return nd.image_dictionary
+    return nd.simhash_index,nd.image_dictionary 
+    #return nd.image_dictionary
 
 def partition_filenames(file_array, num_chunks=2):
     """ Given an array of file names, return "num_chunks" partitions"""
@@ -95,6 +96,13 @@ def partition_filenames(file_array, num_chunks=2):
         yield file_array[i:i+chunk_size]
 
 def merge_near_duplicates(near_duplicate_objects):
+    if near_duplicate_objects == None or len(near_duplicate_objects) == 0:
+        return {}
+
+    if len(near_duplicate_objects) == 1:
+        # near_duplicate_objects is a tuple (index, image_dictionary)
+        return near_duplicate_objects[0][1]
+
     final_dict = {}
     first_nd = None
     second_nd = None
@@ -108,9 +116,9 @@ def merge_near_duplicates(near_duplicate_objects):
             first_nd.image_dictionary, second_nd.image_dictionary  = img_dict1, img_dict2 
             first_nd.simhash_index, second_nd.simhash_index = sim_index1, sim_index2 
 
-            first_nd.merge_near_duplicate_dictionaries(second_nd)
-    
-    final_dict = second_nd.image_dictionary
+            final_dict.update(first_nd.merge_near_duplicate_dictionaries(second_nd))
+            
+    #final_dict = second_nd.image_dictionary
 
     return final_dict
 
@@ -148,6 +156,7 @@ def create_output_image_directory(args, final_dictionary):
     if args.output_dir == None:
         return
     #rm_dir(args.output_dir)
+    print >> sys.stderr, "Copying image files to output dir"
 
     duplicate_dir = os.path.join( args.output_dir, '_duplicates')
     mkdir_p(args.output_dir)
@@ -163,16 +172,16 @@ def create_output_image_directory(args, final_dictionary):
 
         # Copy image to new directory 
         shutil.copy2(src_path, dst_path) 
-
-        # If we're interested in looking at duplicates
-        # We examine the rest of the images in the duplicate array for this 
-        # Image hash
+        
+        # Copy all the duplicate images for this specific image to 
+        # a subdirectory within '_duplicates'
         if len(duplicate_image_array) > 1 and args.show_duplicates:
             curr_duplicate_image_dir = os.path.join(duplicate_dir, image_hash)
             mkdir_p(curr_duplicate_image_dir)
             for index, dup_obj in enumerate(duplicate_image_array):
+                src_path = dup_obj["filename"] 
                 _, dst_filename = os.path.split(dup_obj["filename"]) 
-                dst_path = os.path.join(curr_duplicate_image_dir, str(index) + "-" + dst_filename)
+                dst_path = os.path.join(curr_duplicate_image_dir, dst_filename)
                 shutil.copy2(src_path, dst_path) 
            
 
@@ -194,6 +203,8 @@ def generate_output(args):
     # Find all image files in dump directory
     filenames = find_all_images(args.dump_dir)
 
+     
+
     # Partition the list of filenames
     num_chunks = args.num_jobs 
     file_chunks = partition_filenames(filenames, num_chunks)
@@ -206,29 +217,32 @@ def generate_output(args):
     results = []
     final_dictionary = {}
     if not args.near_duplicates:
-        # Get the results from each worker
-        results = [pool.apply_async(exact_deduplicate_images, args=(index,chunk,)) 
-                for index, chunk in enumerate(file_chunks)]
-        dictionaries = [p.get() for p in results]
+        if args.num_jobs == 1:
+            # If we're only using one worker, don't make overhead of starting a process
+            result = exact_deduplicate_images(filenames)
+            dictionaries = [result]
+        else:
+            # Get the results from each worker
+            results = [pool.apply_async(exact_deduplicate_images, args=(index,chunk,)) 
+                    for index, chunk in enumerate(file_chunks)]
+            dictionaries = [p.get() for p in results]
 
         # Merge the results into one dictionary
         final_dictionary = merge_exact_duplicates(dictionaries)
     else:
-        # Get the results from each near duplicate worker
-        results = [pool.apply_async(near_deduplicate_images, args=(chunk,)) 
-                for chunk in file_chunks]
-
-        # Create an array of simhash_index, dictionary tuples
-        #index_dictionary_tuples = [p.get() for p in results]
-
-        # create an array of near duplicate objects
-        near_duplicate_objects = [p.get() for p in results]
-
-        # Merge with exact 
-        final_dictionary = merge_exact_duplicates(near_duplicate_objects)
+        if args.num_jobs == 1:
+            # If we're only using one worker, don't make overhead of starting a process
+            result = near_deduplicate_images(filenames)
+            near_duplicate_objects = [result]
+        else:
+            # Get the results from each near duplicate worker
+            results = [pool.apply_async(near_deduplicate_images, args=(chunk,)) 
+                    for chunk in file_chunks]
+            # create an array of near duplicate objects
+            near_duplicate_objects = [p.get() for p in results]
 
         # Merge the dictionaries together using the info from its corresponding indexes
-        #final_dictionary = merge_near_duplicates(near_duplicate_objects)
+        final_dictionary = merge_near_duplicates(near_duplicate_objects)
 
     print >> sys.stderr, "Number of images prior to deduplication: %d" % len(filenames)
     print >> sys.stderr, "Number of images after deduplication: %d" %  len(final_dictionary)
