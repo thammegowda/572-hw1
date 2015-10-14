@@ -16,7 +16,7 @@ from PIL import Image
 from simhash import Simhash, SimhashIndex
 
 class NearDuplicate:
-    def __init__(self, filenames, use_tika_meta=False, bit_distance=1):
+    def __init__(self, filenames, use_tika_meta=False, bit_distance=2):
         self.filenames = filenames
         self.use_tika_meta = use_tika_meta
         self.simhash_index = None 
@@ -85,18 +85,18 @@ class NearDuplicate:
         # Resize the image so all images are normalized
         width = im.size[0]
         height = im.size[1]
-        resize_width = 40
+        resize_width = 30 
         resize_height = resize_width*height/width
-        im.resize((resize_width, resize_height), Image.ANTIALIAS)
+        resize_im = im.resize((resize_width, resize_height), Image.ANTIALIAS)
 
         # Crop sub regions
         height_padding, width_padding = resize_height/5, resize_width/5
         box = (width_padding, height_padding, resize_width - width_padding, 
                 resize_height - height_padding)
-        sub_region = im.crop(box) 
+        sub_region = resize_im.crop(box) 
 
         # Generate a histogram
-        histogram_bytes = str(im.histogram()) 
+        histogram_bytes = str(resize_im.histogram()) 
 
         # Figure out the content type (png, jpg, etc.)
         content_type = "image/" + str(im.format.lower())
@@ -107,7 +107,7 @@ class NearDuplicate:
                 "Image Width" : 1,
                 "Image Histogram" : 3,
                 "Content-Type" : 4,
-                "Center Region Bytes" : 5 
+                "Center Region Bytes" : 1 
         }
 
         metadata = {
@@ -140,26 +140,21 @@ class NearDuplicate:
 
             # If an exact duplicate exists, just grab it and merge them 
             if larger_nd.image_dictionary.get(key, None) != None:
-                print >> sys.stderr, "Exact dup found"
                 arr = smaller_nd.image_dictionary.get(key, []) +\
                         larger_nd.image_dictionary.get(key, [])
-                print >> sys.stderr, "Adding to dictionary"
                 final_dict[key] = arr
                 continue
 
             # Find the closest near duplicate in the larger dictionary by
             # using it's index
-            print >> sys.stderr, "Getting simhash obj"
             simhash_obj = smaller_nd.image_dictionary[key][0]["hash_object"]
 
-            print >> sys.stderr, "Getting near duplicate keys"
             near_duplicates_keys = larger_nd.simhash_index.get_near_dups(simhash_obj)
             
             # If a near duplicate exists 
             if len(near_duplicates_keys) > 0:
                 # grab the array of images at that key in the larger dictionary
                 # Merge it the array of images in the smaller dictionary 
-                print >> sys.stderr, "Near duplicates exist"
                 near_dup_key = near_duplicates_keys[0]
                 arr = smaller_nd.image_dictionary.get(key, []) +\
                         larger_nd.image_dictionary.get(near_dup_key, [])

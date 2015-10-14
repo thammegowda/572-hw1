@@ -16,6 +16,6 @@ echo "================================"
 echo "NEAR DEDUPLICATION TEST"
 echo "================================"
 echo "Running near deduplication algorithm on images in folder test_images"
-python main.py $img_dir -n -d $near_out_dir -s 
+python main.py $img_dir -n -d $near_out_dir -s -j 1
 echo "================================"
 

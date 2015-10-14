@@ -201,6 +201,8 @@ def generate_output(args):
     # Find all image files in dump directory
     filenames = find_all_images(args.dump_dir)
 
+     
+
     # Partition the list of filenames
     num_chunks = args.num_jobs 
     file_chunks = partition_filenames(filenames, num_chunks)
@@ -213,23 +215,29 @@ def generate_output(args):
     results = []
     final_dictionary = {}
     if not args.near_duplicates:
-        # Get the results from each worker
-        results = [pool.apply_async(exact_deduplicate_images, args=(index,chunk,)) 
-                for index, chunk in enumerate(file_chunks)]
-        dictionaries = [p.get() for p in results]
+        if args.num_jobs == 1:
+            # If we're only using one worker, don't make overhead of starting a process
+            result = exact_deduplicate_images(filenames)
+            dictionaries = [result]
+        else:
+            # Get the results from each worker
+            results = [pool.apply_async(exact_deduplicate_images, args=(index,chunk,)) 
+                    for index, chunk in enumerate(file_chunks)]
+            dictionaries = [p.get() for p in results]
 
         # Merge the results into one dictionary
         final_dictionary = merge_exact_duplicates(dictionaries)
     else:
-        # Get the results from each near duplicate worker
-        results = [pool.apply_async(near_deduplicate_images, args=(chunk,)) 
-                for chunk in file_chunks]
-
-        # Create an array of simhash_index, dictionary tuples
-        #index_dictionary_tuples = [p.get() for p in results]
-
-        # create an array of near duplicate objects
-        near_duplicate_objects = [p.get() for p in results]
+        if args.num_jobs == 1:
+            # If we're only using one worker, don't make overhead of starting a process
+            result = near_deduplicate_images(filenames)
+            near_duplicate_objects = [result]
+        else:
+            # Get the results from each near duplicate worker
+            results = [pool.apply_async(near_deduplicate_images, args=(chunk,)) 
+                    for chunk in file_chunks]
+            # create an array of near duplicate objects
+            near_duplicate_objects = [p.get() for p in results]
 
         # Merge the dictionaries together using the info from its corresponding indexes
         final_dictionary = merge_near_duplicates(near_duplicate_objects)
