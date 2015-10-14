@@ -105,9 +105,9 @@ class NearDuplicate:
         feature_weight_dict = {
                 "Image Height" : 1, 
                 "Image Width" : 1,
-                "Image Histogram" : 3,
-                "Content-Type" : 4,
-                "Center Region Bytes" : 1 
+                "Image Histogram" : 4,
+                "Content-Type" : 5,
+                "Center Region Bytes" : 3 
         }
 
         metadata = {
