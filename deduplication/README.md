@@ -49,6 +49,7 @@ This program relies on three modules. Simply install them using pip.
 	pip install simhash
 	pip install exifread
 	pip install git+https://github.com/uqfoundation/pathos
+	pip install Pillow
 
 Those commands should install the modules globally to your system.
 	
