@@ -8,21 +8,22 @@ __status__ = "Development"
    This module contains methods to find near duplicate images.  
 """
 import tika
-tika.initVM()
+#tika.initVM()
 from tika import parser
 import sys
 import exifread
+from PIL import Image
 from simhash import Simhash, SimhashIndex
 
 class NearDuplicate:
-    def __init__(self, filenames, use_tika_meta=True):
+    def __init__(self, filenames, use_tika_meta=False, bit_distance=1):
         self.filenames = filenames
         self.use_tika_meta = use_tika_meta
         self.simhash_index = None 
         self.image_dictionary = {}
+        self.k = bit_distance
         # Need to store the image hashes in some fashion
         # Possibly cluster the hashes (k-means) 
-        # Use 
     
     def tika_metadata(self, filename):
         """Use the tika-py module to grab metadata for a file"""
@@ -39,15 +40,66 @@ class NearDuplicate:
         """Given an image generate a feature vector"""
 
         # Grab the metadata for the image
-        metadata = None
-        feature_tags = ["Image Height", "Image Width", "File Size", "Content-Type"]
+        metadata = {} 
+        
+        features = []
         if self.use_tika_meta:
+            # Use only metadata from tika
             metadata = self.tika_metadata(filename)
-        else:
-            metadata = self.exifread_metadata(filename)
-            
+            feature_tags = ["Image Height", "Image Width", "File Size", "Content-Type"]
+            features = [tag + ":" + metadata.get(tag,"NONE") for tag in feature_tags]
+            return features
+
+        """ 
+            Let's create an additional feature which uses the image content
+            For now, let's just hash the entire image
+                We'll resize the image so it's normalized to a certain size
+
+                Features to use
+                    - color histogram
+                    - image bytes of subregions
+
+            We can take subregions of the image, and hash those
+        """
+
+        im = Image.open(filename)
+        # Resize the image so all images are normalized
+        width = im.size[0]
+        height = im.size[1]
+        resize_width = 40
+        resize_height = resize_width*height/width
+        im.resize((resize_width, resize_height), Image.ANTIALIAS)
+
+        # Crop sub regions
+        height_padding, width_padding = resize_height/5, resize_width/5
+        box = (width_padding, height_padding, resize_width - width_padding, 
+                resize_height - height_padding)
+        sub_region = im.crop(box) 
+        histogram_bytes = str(im.histogram()) 
+        content_type = "image/" + str(im.format.lower())
+        center_region_bytes = str(list(sub_region.getdata()))
+        
+        feature_weight_dict = {
+                "Image Height" : 1, 
+                "Image Width" : 1,
+                "Image Histogram" : 3,
+                "Content-Type" : 3,
+                "Center Region Bytes" : 5 
+
+        }
+        metadata = {
+                "Image Height" : str(width), 
+                "Image Width" : str(height),
+                "Image Histogram" : histogram_bytes,
+                "Content-Type" : content_type,
+                "Center Region Bytes" : center_region_bytes 
+        }
+
+        
         # Create a vector of metadata
-        features = [tag + ":" + metadata.get(tag,"NONE") for tag in feature_tags] 
+        #features = [tag + ":" + metadata.get(tag,"NONE") for tag, weight in zip(feature_tags_weight_tuple,] 
+        for (feature_tag, weight), (meta_tag, meta_value) in zip(feature_weight_dict.items(), metadata.items()):
+            features.append((meta_tag + ":" + meta_value, weight))
 
         return features 
 
@@ -142,7 +194,7 @@ class NearDuplicate:
 
                 # We will use this index to speed up the process for finding
                 # nearby simhashes
-                self.simhash_index = SimhashIndex([(key, sHash)])
+                self.simhash_index = SimhashIndex([(key, sHash)], k=self.k)
                 self.image_dictionary[key] = [{
                     "filename" : image_file, 
                     "hash_key" : key, 

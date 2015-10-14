@@ -48,13 +48,14 @@ This program relies on three modules. Simply install them using pip.
 	pip install tika
 	pip install simhash
 	pip install exifread
+	pip install git+https://github.com/uqfoundation/pathos
 
 Those commands should install the modules globally to your system.
 	
 
 ##Quick Use
 
-To try out the program on a few images, I've included a test_images/ directory.  Just run this command in this directory:
+To try out the program on a few images, you can use the test_images/ directory.  Just run these commands in this `deduplication` directory:
 
 	chmod a+x test.sh
 	./test.sh
