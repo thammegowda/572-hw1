@@ -43,7 +43,7 @@ The purpose of this program is to deduplicate images! The program gives the opti
 
 ##Install
 
-This program relies on three modules. Simply install them using pip. 
+This program relies on some external modules. Simply install them using pip. 
 
 	pip install tika
 	pip install simhash
