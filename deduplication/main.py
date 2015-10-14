@@ -44,9 +44,11 @@ def is_image(filename):
         if filename.endswith(ext):
             # Compare the file extension
             return True
+        """
         elif imghdr.what(filename) != None:
             # If there's no extension, determine if it's an image by opening the file
             return True
+        """
 
     # If necessary try opening the file with an image module
     # If there's an error opening it, then it's not an image so return false
