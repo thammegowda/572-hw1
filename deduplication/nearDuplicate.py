@@ -13,6 +13,8 @@ from tika import parser
 import sys
 import exifread
 from PIL import Image
+
+# Simhash algorithm https://github.com/liangsun/simhash 
 from simhash import Simhash, SimhashIndex
 
 class NearDuplicate:
