@@ -49,8 +49,8 @@ public class MetadataDumper {
             IOUtils.closeQuietly(reader);
 
             JsonElement element = serializer.serialize(md, null, null);
-            writer.write(file.getAbsolutePath());
-            writer.write("\t:\t");
+            //writer.write(file.getAbsolutePath());
+            //writer.write("\t:\t");
             writer.write(element.toString());
             writer.write("\n");
             count++;
