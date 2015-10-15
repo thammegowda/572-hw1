@@ -64,9 +64,13 @@ docs/_build/
 target/
 
 # Deduplication
+*.DS_Store
 deduplication/*.json
 deduplication/**/*.json
 deduplication/**/*.jpg
-!deduplication/test_images/*.jpg
+#deduplication/**/*.gif
+deduplication/test_output_exact_deduplicated_images/
+deduplication/test_output_near_deduplicated_images/
+!deduplication/test_images/
 
 deduplication/data

@@ -33,6 +33,8 @@ def create_parser():
     parser.add_argument('-d', '--output_dir', help="Output deduplicated images to directory. ")
     parser.add_argument('-s', '--show_duplicates', default=False, action="store_true", help="Use this flag to generate a directory which contains duplicates. Defaults behavior doesn't show duplicates." ) 
     parser.add_argument('-j', '--num_jobs', help="Number of worker threads to divide the deduplication. Defaults to 2. The more images the more jobs you should create", default=2, type=int)
+    parser.add_argument('-k', '--bit_distance', help="Difference k between simhash fingerprints",
+            default=2, type=int)
 
     return parser
 
@@ -44,11 +46,9 @@ def is_image(filename):
         if filename.endswith(ext):
             # Compare the file extension
             return True
-        """
         elif imghdr.what(filename) != None:
             # If there's no extension, determine if it's an image by opening the file
             return True
-        """
 
     # If necessary try opening the file with an image module
     # If there's an error opening it, then it's not an image so return false
@@ -66,8 +66,10 @@ def find_all_images(dump_directory):
     filenames = []
     for root, dirs, files in os.walk(dump_directory):
         for f in files:
-            if is_image(f):
-                 filenames.append(os.path.join(root,f))
+            filename = os.path.join(root, f)
+            abspath = os.path.abspath(filename)
+            if is_image(abspath):
+                 filenames.append(abspath)
     
     print >> sys.stderr, "Found %d images in directory: %s" % (len(filenames), dump_directory)
     return filenames
@@ -81,9 +83,9 @@ def exact_deduplicate_images(workerId, file_array):
     ed.deduplicate_images()
     return ed.image_dictionary
 
-def near_deduplicate_images(file_array):
+def near_deduplicate_images(file_array, bit_distance):
     """Given a list of file names, return a dictionary of "nearly" deduplicated images"""
-    nd = NearDuplicate(file_array)
+    nd = NearDuplicate(file_array, k=bit_distance)
     nd.deduplicate_images()
     return nd.simhash_index,nd.image_dictionary 
     #return nd.image_dictionary
@@ -232,11 +234,11 @@ def generate_output(args):
     else:
         if args.num_jobs == 1:
             # If we're only using one worker, don't make overhead of starting a process
-            result = near_deduplicate_images(filenames)
+            result = near_deduplicate_images(filenames, args.bit_distance)
             near_duplicate_objects = [result]
         else:
             # Get the results from each near duplicate worker
-            results = [pool.apply_async(near_deduplicate_images, args=(chunk,)) 
+            results = [pool.apply_async(near_deduplicate_images, args=(chunk,args.bit_distance)) 
                     for chunk in file_chunks]
             # create an array of near duplicate objects
             near_duplicate_objects = [p.get() for p in results]

@@ -8,22 +8,22 @@ __status__ = "Development"
    This module contains methods to find near duplicate images.  
 """
 import tika
-#tika.initVM()
+tika.initVM()
 from tika import parser
 import sys
 import exifread
 from PIL import Image
+import os
 
 # Simhash algorithm https://github.com/liangsun/simhash 
 from simhash import Simhash, SimhashIndex
 
 class NearDuplicate:
-    def __init__(self, filenames, use_tika_meta=False, bit_distance=2):
+    def __init__(self, filenames, k=2):
         self.filenames = filenames
-        self.use_tika_meta = use_tika_meta
         self.simhash_index = None 
         self.image_dictionary = {}
-        self.k = bit_distance
+        self.k = k 
         # Need to store the image hashes in some fashion
         # Possibly cluster the hashes (k-means) 
     
@@ -61,10 +61,18 @@ class NearDuplicate:
 
         if use_tika:
             # Use only metadata from tika
-            # The image file can't be opened using PIL.Image, so forget 
-            # about grabbing actual image bytes for now
+            # The image file can't be opened using PIL.Image, so that means
+            # a diff type of image besides jpg, png
             metadata = self.tika_metadata(filename)
-            feature_tags = ["Image Height", "Image Width", "File Size", "Content-Type"]
+
+            # Grab the bytes of the entire file
+            image_bytes = open(filename).read()
+
+            # Get the central bytes 
+            image_bytes_str = str(image_bytes)
+            byte_offset = len(image_bytes_str)//4
+            metadata["Image Bytes"] = image_bytes_str[byte_offset:-byte_offset] 
+            feature_tags = ["Image Height", "Image Width", "File Size", "Content-Type", "Image Bytes"]
             features = [tag + ":" + metadata.get(tag,"NONE") for tag in feature_tags]
             return features
 
@@ -89,20 +97,42 @@ class NearDuplicate:
         height = im.size[1]
         resize_width = 30 
         resize_height = resize_width*height/width
-        resize_im = im.resize((resize_width, resize_height), Image.ANTIALIAS)
+        resize_im = None
+        histogram_bytes = ""
+        center_region_bytes = ""
+        extension = ""
+        try :
+            resize_im = im.resize((resize_width, resize_height), Image.ANTIALIAS)
+            # Crop sub regions
+            height_padding, width_padding = resize_height/5, resize_width/5
+            box = (width_padding, height_padding, resize_width - width_padding, 
+                    resize_height - height_padding)
+            sub_region = resize_im.crop(box)
+            
+            # Generate a histogram
+            histogram_bytes = str(resize_im.histogram())
+            center_region_bytes = str(list(sub_region.getdata()))
+        except OSError:
+            
+            # Couldn't resize the image. Let's
+            print >> sys.stderr, "Couldn't resize the image. Prob an eps or svg"
+            resize_im = im
+            resize_width = im.size[0]
+            resize_height = im.size[1]
+            sub_region = im
 
-        # Crop sub regions
-        height_padding, width_padding = resize_height/5, resize_width/5
-        box = (width_padding, height_padding, resize_width - width_padding, 
-                resize_height - height_padding)
-        sub_region = resize_im.crop(box) 
-
-        # Generate a histogram
-        histogram_bytes = str(resize_im.histogram()) 
-
+            # Grab the bytes of the entire file
+            image_bytes = open(filename).read()
+            # Get the central bytes 
+            image_bytes_str = str(image_bytes)
+            byte_offset = len(image_bytes_str)//4
+            center_region_bytes = image_bytes_str[byte_offset:-byte_offset] 
+         
+        extension = resize_im.format if resize_im.format !=  None else os.path.splitext(filename)[1]
+         
         # Figure out the content type (png, jpg, etc.)
-        content_type = "image/" + str(im.format.lower())
-        center_region_bytes = str(list(sub_region.getdata()))
+        content_type = "image/" + str(extension.lower())
+        
         
         feature_weight_dict = {
                 "Image Height" : 1, 
