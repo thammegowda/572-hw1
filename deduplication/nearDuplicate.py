@@ -19,10 +19,11 @@ import os
 from simhash import Simhash, SimhashIndex
 
 class NearDuplicate:
-    def __init__(self, filenames, k=2):
+    def __init__(self, filenames, k=2, metadata_dictionary=None):
         self.filenames = filenames
         self.simhash_index = None 
         self.image_dictionary = {}
+        self.metadata_dictionary = metadata_dictionary
         self.k = k 
         # Need to store the image hashes in some fashion
         # Possibly cluster the hashes (k-means) 
@@ -38,11 +39,63 @@ class NearDuplicate:
         tags = exifread.process_file(f)
         return tags
 
+    def generate_features_from_dict(self, filename):
+        """ Use this function when we provide json metadata information from
+            the tika java module"""
+
+        # Find the metadata object from the json metadata file for the image_file named 'filename'
+        metadata = self.metadata_dictionary.get(filename, {})
+       
+        # The tags or type of metadata we want
+        feature_tags = ["Image Height", "Image Width", "File Size", "Content-Type", "Image Bytes", "File Name Suffix"]
+
+        # Create a feature array using these metadata values
+        features = []
+
+        feature_weight_dict = {
+                "Image Height" : 1, 
+                "Image Width" : 1,
+                "Files Size" : 2,
+                "Content-Type" : 3,
+                "Image Bytes" : 6, 
+                "File Name Suffix" :2 
+        }
+
+        # Grab the bytes of the entire file
+        image_bytes = "NONE"
+        try:
+            image_bytes = open(filename, 'rb').read()
+        except OSError:
+            image_bytes = "NONE"
+
+        # Get the central bytes 
+        image_bytes_str = unicode( str(image_bytes), 'utf-8', "ignore")
+        byte_offset = len(image_bytes_str)//4
+        filename_suffix = filename[-10:]
+
+        modified_metadata = {
+                "Image Height" : metadata.get("Image Height", "NONE"), 
+                "Image Width" : metadata.get("Image Width", "NONE"),
+                "File Size" : metadata.get("File Size", "NONE"),
+                "Content-Type" : metadata.get("Content-Type", "NONE"),
+                "Image Bytes" : image_bytes_str[byte_offset:-byte_offset], 
+                "File Name Suffix" : filename_suffix
+        }
+       
+        # Create an array of (token, weight) tuples. These are our features and weights
+        # to be used for the Simhash
+        for (feature_tag, weight), (meta_tag, meta_value) in zip(feature_weight_dict.items(), 
+                modified_metadata.items()):
+            features.append((meta_tag + ":" + meta_value, weight))
+
+        return features
+
+
     def generate_features(self, filename):
         """Given an image generate a feature vector"""
 
         """ 
-            Since Tika-Py is requires a server call (i.e. slower)
+            Since Tika-Py requires a server call (i.e. slower)
             Do native image metadata grabbing, and fallback on tika if the
             image can't be opened (i.e., it's an svg or gif)
         """
@@ -69,7 +122,9 @@ class NearDuplicate:
             image_bytes = open(filename).read()
 
             # Get the central bytes 
-            image_bytes_str = str(image_bytes)
+
+            image_bytes_str = unicode( str(image_bytes), 'utf-8', "ignore")
+            #image_bytes_str = str(image_bytes)
             byte_offset = len(image_bytes_str)//4
             metadata["Image Bytes"] = image_bytes_str[byte_offset:-byte_offset] 
             feature_tags = ["Image Height", "Image Width", "File Size", "Content-Type", "Image Bytes"]
@@ -98,8 +153,8 @@ class NearDuplicate:
         resize_width = 30 
         resize_height = resize_width*height/width
         resize_im = None
-        histogram_bytes = ""
-        center_region_bytes = ""
+        histogram_bytes, histogram_weight = "", 0
+        center_region_bytes, center_region_weight = "", 5
         extension = ""
         try :
             resize_im = im.resize((resize_width, resize_height), Image.ANTIALIAS)
@@ -110,8 +165,8 @@ class NearDuplicate:
             sub_region = resize_im.crop(box)
             
             # Generate a histogram
-            histogram_bytes = str(resize_im.histogram())
-            center_region_bytes = str(list(sub_region.getdata()))
+            histogram_bytes, histogram_weight = str(resize_im.histogram()), 4
+            center_region_bytes, center_region_weight = str(list(sub_region.getdata())), 3
         except OSError:
             
             # Couldn't resize the image. Let's
@@ -124,7 +179,9 @@ class NearDuplicate:
             # Grab the bytes of the entire file
             image_bytes = open(filename).read()
             # Get the central bytes 
-            image_bytes_str = str(image_bytes)
+            #image_bytes_str = str(image_bytes)
+            histogram_bytes = "NONE"
+            image_bytes_str = unicode( str(image_bytes), 'utf-8', "ignore")
             byte_offset = len(image_bytes_str)//4
             center_region_bytes = image_bytes_str[byte_offset:-byte_offset] 
          
@@ -137,9 +194,9 @@ class NearDuplicate:
         feature_weight_dict = {
                 "Image Height" : 1, 
                 "Image Width" : 1,
-                "Image Histogram" : 4,
+                "Image Histogram" : histogram_weight,
                 "Content-Type" : 5,
-                "Center Region Bytes" : 3 
+                "Center Region Bytes" : center_region_weight 
         }
 
         metadata = {
@@ -226,9 +283,16 @@ class NearDuplicate:
         """
         # Iterate through our files
         for image_file in self.filenames:
-            # Create a list of features
-            feature_array = self.generate_features(image_file)
-
+            feature_array = []
+            if self.metadata_dictionary != None:
+                # Will use a java tika program to generate metadata 
+                # Metadata will be a json file with {filename : metadata} objects
+                feature_array = self.generate_features_from_dict(image_file)
+            else:
+                # Use our own function for grabbing metadata
+                # Create a list of features
+                feature_array = self.generate_features(image_file)
+        
             # Simhash this list of features
             sHash = Simhash(feature_array)
             if self.simhash_index == None:

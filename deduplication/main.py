@@ -28,14 +28,19 @@ def create_parser():
             help='Use this flag to deduplicate images via an "exact" deduplication methodology. Default behavior is to use exact duplicates.')
     group.add_argument('-n', '--near_duplicates', action="store_true", default=False,
             help='Use this flag to deduplicate images via a "near" deduplication methodology')
-    parser.add_argument('dump_dir', help="The absolute path to your dump directory")
+
+    group2 = parser.add_mutually_exclusive_group()
+
+    group2.add_argument('-i', '--dump_dir', help="The absolute path to your dump directory")
+    group2.add_argument('-l', '--json_metadata', help="A jsonlines file containing the filename and tika metadata files")
+
     parser.add_argument('-o', '--output_json', help="Write the locations and hashes of each deduplicated image to a JSON file. Defaults to 'image_locations.json'") 
     parser.add_argument('-d', '--output_dir', help="Output deduplicated images to directory. ")
     parser.add_argument('-s', '--show_duplicates', default=False, action="store_true", help="Use this flag to generate a directory which contains duplicates. Defaults behavior doesn't show duplicates." ) 
     parser.add_argument('-j', '--num_jobs', help="Number of worker threads to divide the deduplication. Defaults to 2. The more images the more jobs you should create", default=2, type=int)
     parser.add_argument('-k', '--bit_distance', help="Difference k between simhash fingerprints",
-            default=2, type=int)
-
+            default=1, type=int)
+    
     return parser
 
 def is_image(filename):
@@ -71,7 +76,7 @@ def find_all_images(dump_directory):
             if is_image(abspath):
                  filenames.append(abspath)
     
-    print >> sys.stderr, "Found %d images in directory: %s" % (len(filenames), dump_directory)
+    #print >> sys.stderr, "Found %d images in directory: %s" % (len(filenames), dump_directory)
     return filenames
 
 def exact_deduplicate_images(workerId, file_array):
@@ -83,9 +88,9 @@ def exact_deduplicate_images(workerId, file_array):
     ed.deduplicate_images()
     return ed.image_dictionary
 
-def near_deduplicate_images(file_array, bit_distance):
+def near_deduplicate_images(file_array, bit_distance, metadata = None):
     """Given a list of file names, return a dictionary of "nearly" deduplicated images"""
-    nd = NearDuplicate(file_array, k=bit_distance)
+    nd = NearDuplicate(file_array, k=bit_distance, metadata_dictionary = metadata)
     nd.deduplicate_images()
     return nd.simhash_index,nd.image_dictionary 
     #return nd.image_dictionary
@@ -108,7 +113,6 @@ def merge_near_duplicates(near_duplicate_objects):
     final_dict = {}
     first_nd = None
     second_nd = None
-    #for simhash_index,image_dictionary in index_dictionary_tuples:
     for index, (simhash_index, image_dictionary) in enumerate(near_duplicate_objects):
         if index < len(near_duplicate_objects) - 1:
             sim_index1, img_dict1 = near_duplicate_objects[index]
@@ -120,7 +124,6 @@ def merge_near_duplicates(near_duplicate_objects):
 
             final_dict.update(first_nd.merge_near_duplicate_dictionaries(second_nd))
             
-    #final_dict = second_nd.image_dictionary
 
     return final_dict
 
@@ -192,6 +195,48 @@ def create_output_image_directory(args, final_dictionary):
     if args.show_duplicates:
         print >> sys.stderr, "Duplicates stored in: \n --- %s ---" % duplicate_dir
 
+def process_json_line(lines):
+    # load the line as json
+    metadata_object = {}
+    for line in lines:
+        parts = line.split("\t:\t")
+        file_path = parts[0].strip()
+        json_string = parts[1].strip()
+        meta = json.loads(json_string)
+        metadata_object[file_path] = meta
+    return metadata_object 
+
+def process_json_file(json_file):
+    metadata_object = {}
+    filenames = []
+    with open(json_file) as source_file:
+        for line in source_file:
+            #parts = line.split("\t:\t")
+            #file_path = parts[0].strip()
+            #json_string = parts[1].strip()
+            #meta = json.loads(json_string)
+            meta = json.loads(line)
+            file_path = meta["__path__"]
+            filenames.append(file_path)
+            metadata_object[file_path] = meta
+    return metadata_object, filenames
+
+def json_to_metadata_chunks(args,file_chunks = []):
+    # Open the json file, and split the reading of the file among worker threads
+    results = [] 
+
+    if args.json_metadata == None:
+        return None
+    num_proc = len(file_chunks)
+    print >> sys.stderr, file_chunks
+    pool = Pool(processes = num_proc)
+    
+
+    with open(args.json_metadata) as json_metadata_file:
+        results = [pool.map(process_json_line,json_metadata_file, chunk) for index, chunk in enumerate(file_chunks)]
+    #objs = [p.get() for p in results] 
+    return merge_exact_duplicates(results)
+
 def generate_output(args):
     """ Main application Driver
         
@@ -202,17 +247,40 @@ def generate_output(args):
         5. Merge the results from each worker to one python dictionary
         6. OPTIONAL -- Output the deduplicated image files to a directory 
     """
-    # Find all image files in dump directory
-    filenames = find_all_images(args.dump_dir)
-
-     
+    
 
     # Partition the list of filenames
     num_chunks = args.num_jobs 
-    file_chunks = partition_filenames(filenames, num_chunks)
-
+    
     # Create a pool of worker threads
     # Each worker will deduplicate a set of images
+    filenames = [] 
+    metadata = None
+    end_str = ""
+    if args.json_metadata != None:
+        metadata,filenames = process_json_file(args.json_metadata)
+        end_str = "from metadata file: %s" % args.json_metadata
+    else:
+        # Find all image files in dump directory
+        filenames = find_all_images(args.dump_dir)
+        end_str = "from directory: %s" % args.dump_dir
+
+    file_chunks = partition_filenames(filenames, num_chunks)
+    print >> sys.stderr, "Found %d images in directory: %s" % (len(filenames), end_str)
+
+    """
+    metadata_results = []
+    file_chunk_list = list(file_chunks)
+    num_proc = len(file_chunk_list)
+    print >> sys.stderr, "Printing file chunks"
+    print >> sys.stderr, file_chunks
+    pool2 = Pool(processes = num_proc)
+    with open(args.json_metadata) as json_metadata_file:
+        metadata_results = [pool2.map(process_json_line,json_metadata_file, chunk) for index, chunk in enumerate(file_chunk_list)]
+    #objs = [p.get() for p in results] 
+    metadata =  merge_exact_duplicates(metadata_results)
+    """
+    
     pool = Pool(processes=num_chunks)
 
     # Pass the partitions to each thread
@@ -234,12 +302,14 @@ def generate_output(args):
     else:
         if args.num_jobs == 1:
             # If we're only using one worker, don't make overhead of starting a process
-            result = near_deduplicate_images(filenames, args.bit_distance)
+            result = near_deduplicate_images(filenames, args.bit_distance, metadata = metadata)
             near_duplicate_objects = [result]
         else:
             # Get the results from each near duplicate worker
-            results = [pool.apply_async(near_deduplicate_images, args=(chunk,args.bit_distance)) 
-                    for chunk in file_chunks]
+            if metadata != None:
+                results = [pool.apply_async(near_deduplicate_images, (chunk,args.bit_distance, ), dict(metadata=metadata)) for chunk in file_chunks] 
+            else:
+                results = [pool.apply_async(near_deduplicate_images, (chunk,args.bit_distance,))  for chunk in file_chunks] 
             # create an array of near duplicate objects
             near_duplicate_objects = [p.get() for p in results]
 
@@ -253,6 +323,8 @@ def generate_output(args):
     outfile_name = ""
     if args.output_json == None:
         outfile_name = "image_locations.json"
+    else:
+        outfile_name = args.output_json
     
     if not args.near_duplicates:
         # TODO

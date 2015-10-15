@@ -1,15 +1,12 @@
 #Image Deduplication In Python
 
 #####Nii Mante
-	usage: python main.py [-h] [-e | -n] [-o OUTPUT_JSON] [-d OUTPUT_DIR] [-s]
-               [-j NUM_JOBS]
-               dump_dir
+	usage: main.py [-h] [-e | -n] [-i DUMP_DIR | -l JSON_METADATA]
+               [-o OUTPUT_JSON] [-d OUTPUT_DIR] [-s] [-j NUM_JOBS]
+               [-k BIT_DISTANCE]
 
 	This program takes a set of N images, finds duplicate images in the set, and
 	returns a set of deduplicated images.
-	
-	positional arguments:
-	  dump_dir              The absolute path to your dump directory
 	
 	optional arguments:
 	  -h, --help            show this help message and exit
@@ -20,6 +17,11 @@
 	  -n, --near_duplicates
 	                        Use this flag to deduplicate images via a "near"
 	                        deduplication methodology
+	  -i DUMP_DIR, --dump_dir DUMP_DIR
+	                        The absolute path to your dump directory
+	  -l JSON_METADATA, --json_metadata JSON_METADATA
+	                        A jsonlines file containing the filename and tika
+	                        metadata files
 	  -o OUTPUT_JSON, --output_json OUTPUT_JSON
 	                        Write the locations and hashes of each deduplicated
 	                        image to a JSON file. Defaults to
@@ -33,6 +35,9 @@
 	                        Number of worker threads to divide the deduplication.
 	                        Defaults to 2. The more images the more jobs you
 	                        should create
+	  -k BIT_DISTANCE, --bit_distance BIT_DISTANCE
+	                        Difference k between simhash fingerprints
+
 	
 ##Overview
 
@@ -72,6 +77,32 @@ The directories will contain a few things
 - And a folder `_duplicates` with the duplicate images
 	
 
+##Generate Metadata For Near Deduplication
+
+You can generate in two ways:
+
+- Apache Tika Java Plugin
+- Our Program `python main.py`
+
+####Apache Tika Java
+
+There's a program in the `../metadata-dumper/target` directory. This is how you run it.
+
+	java -jar ../metadata-dumper/target/metadata-dumper-0.1-SNAPSHOT-jar-with-dependencies.jar -inputDir <AN_IMAGE_DUMP_DIRECTORY> -output <A_JSON_METADATA_FILE>
+
+This takes a directory of images and outputs a json file for reading the metadata for each image.
+
+Then to use this metadata file with our deduplication program, you would run commands like so:
+
+	# -n for near duplicate, and -l for using a json file
+	python main.py -n -l <A_JSON_METADATA_FILE>
+
+####Our Program
+
+If you don't have apache tika installed, you can use our program to generate metadata. See next section for how to use this
+
+- It uses `PIL` imaging library to grab metadata, and falls back on `tika-py` if `PIL` fails.
+
 ##Large Image Batch Examples
 
 The program **requires** a directory of images. You don't need to worry about the structure of the folder (i.e. subdirectories). If there are images in the directory, the program will find them.
@@ -90,16 +121,15 @@ This dump directory would be what you pass to the deduplication script.
 
 ####Exact duplicate
 
-
 	# Use the -s flag to also show duplicate images
 	# Also split this among 8 jobs with the -j flag
-	python main.py <PREVIOUSLY_CREATED_OUTPUT_DUMP_DIR> -d <DEDUP_IMAGE_DIR_TO_CREATE> -s -j 8
+	python main.py -i <PREVIOUSLY_CREATED_OUTPUT_DUMP_DIR> -d <DEDUP_IMAGE_DIR_TO_CREATE> -s -j 8
 	
 ####Near duplicate
 
 	# Use the -n flag to do near deduplication
 	# Use the -j flag to split this among 4 jobs
-	python main.py <PREVIOUSLY_CREATED_OUTPUT_DUMP_DIR> -d <DEDUP_IMAGE_DIR_TO_CREATE> -s -n -j 4
+	python main.py -i <PREVIOUSLY_CREATED_OUTPUT_DUMP_DIR> -d <DEDUP_IMAGE_DIR_TO_CREATE> -s -n -j 4
 
 ##Program Output
 
@@ -110,10 +140,5 @@ The program outputs a few things:
 - **Final_Image_Count** - The final number of images after deduplication
 - **Images (OPTIONAL)** - If you choose, the program can conveniently put the deduplicated (and duplicate) images into an output folder
 
-##Caveats
-
-**Exact is faster than Near**
-
-Near deduplication is slower due to the fact that it leverages the tika-py module to get metadata.  The tika py module makes http calls to a local server so this slows down processing time a little bit. If you ran exact deduplication and near dedup in parallel, the exact would finish quicker.
 
 
