@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.filefilter.TrueFileFilter;
+import org.apache.commons.lang.StringUtils;
 import org.apache.tika.Tika;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.metadata.serialization.JsonMetadataSerializer;
@@ -13,6 +14,7 @@ import org.kohsuke.args4j.Option;
 
 import java.io.*;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * Dumps metadata of files using tika
@@ -39,8 +41,12 @@ public class MetadataDumper {
                 continue;
             }
             Metadata md = new Metadata();
-            tika.parse(new FileInputStream(file), md);
+            Reader reader = tika.parse(new FileInputStream(file), md);
+            List<String> lines = IOUtils.readLines(reader);
+            String text = StringUtils.join(lines, "\n");
+            md.add("_text_", text);
             md.add("__path__", file.getAbsolutePath());
+            IOUtils.closeQuietly(reader);
 
             JsonElement element = serializer.serialize(md, null, null);
             writer.write(file.getAbsolutePath());
