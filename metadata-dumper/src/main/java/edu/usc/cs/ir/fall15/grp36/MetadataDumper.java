@@ -27,6 +27,8 @@ public class MetadataDumper {
     private JsonMetadataSerializer serializer = new JsonMetadataSerializer();
     private boolean verbose = true;
 
+
+
     private long dumper(File inputDir, OutputStream outputStream) throws IOException {
 
         System.out.println("Finding children");
@@ -38,6 +40,10 @@ public class MetadataDumper {
         for (File file : files) {
             if (!file.isFile()) {
                 System.out.println("Not a file :" + file.getAbsolutePath());
+                continue;
+            }
+            if (file.getName().startsWith(".")) {
+                //skip hidden files
                 continue;
             }
             Metadata md = new Metadata();
